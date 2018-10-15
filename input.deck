@@ -1,0 +1,218 @@
+begin:constant
+  laser_lamada     = 1.0*micron
+  laser_omega      = 2.0*pi*c/laser_lamada
+  laser_period     = laser_lamada/c
+  x_m              = 20*micron
+  laser_k          = 2*pi/laser_lamada
+  w0               = 4*micron
+  rayleigh_length  = pi*w0^2/laser_lamada
+  wz               = w0*sqrt(1+(x_m/rayleigh_length)^2)
+  radius_curv      = x_m*(1.0+(rayleigh_length/x_m)^2)
+
+  a0               = 300
+  Intensity        = (1.37*10^18)*a0^2/((laser_lamada^2)*10^12)       #intensity[W/cm^2]
+  n_critic         = 1.1*10^27/((laser_lamada^2)*10^12)
+end:constant
+
+begin:control
+  nx               = 4000
+
+  # final time of simulation
+  t_end            = 32*laser_period
+  # restart_snapshot = 101
+  # size of domain
+  x_min            = -20*micron
+  x_max            =  20*micron
+  dt_multiplier    = 0.5
+  stdout_frequency = 10
+  dlb_threshold    = 0.5
+end:control
+
+begin:boundaries
+  bc_x_min_field         = simple_laser
+  bc_x_max_field         = simple_laser
+  bc_x_min_particle      = periodic
+  bc_x_max_particle      = periodic
+end:boundaries
+
+begin:species
+   name            = electron
+   charge          = -1.0
+   mass            = 1.0
+   npart           = 100*nx
+   # tracer        = F
+   temp_ev         = 150000
+   density_min     = 0.00001*n_critic
+   density         = if(abs(x) lt 5.0e-6, 1*n_critic, 0) 
+   identify:electron
+end:species
+
+
+begin:species
+   name            = proton
+   charge          = 1.0
+   mass            = 1836.0
+   npart           = 10*nx
+   density         = density(electron)
+   temp_ev         = 10
+#   temp_x         = temp_x(electron)
+end:species
+
+
+begin:species
+   name            = photon
+   charge          = 0.0
+   mass            = 0.0
+#   npart           = 1*nx*ny
+   density         = 0.0
+   identify:photon
+end:species
+
+begin:species
+   name            = positron
+   charge          = 1.0
+   mass            = 1.0
+#   npart           = 1*nx*ny
+   density         = 0.0
+   identify:positron
+end:species
+
+
+begin:laser
+  boundary         = x_min
+  intensity_w_cm2  = Intensity
+  lambda           = laser_lamada
+  profile          = 1
+  t_profile        = 1 #gauss(time,4.5*laser_period,3.5*laser_period)
+  pol_angle        = pi/2.0
+  phase            = 0
+  t_start          = 0.0
+  t_end            = 12*laser_period
+end:laser
+
+begin:laser
+  boundary         = x_max
+  intensity_w_cm2  = Intensity
+  lambda           = laser_lamada
+  profile          = 1
+  t_profile        = 1 #gauss(time,4.5*laser_period,3.5*laser_period)
+  pol_angle        = -pi/2.0
+  phase            = 0
+  t_start          = 0.0
+  t_end            = 12*laser_period
+end:laser
+
+begin:qed
+  use_qed          = F
+  qed_start_time   = 10*laser_period
+  produce_photons  = T
+  photon_dynamics  = F
+  use_radiation_reaction = T
+  photon_energy_min= 1.0*mev
+  produce_pairs    = F
+end:qed
+
+begin:output
+  # number of timesteps between output dumps
+  dt_snapshot      = 0.05*laser_period
+  time_start       = 22.0*laser_period
+  time_stop        = 32.0*laser_period
+  dump_last        = F 
+# restart_dump_every = 101
+  # Properties on grid
+  grid             = always
+  ex               = always + average
+#  ey               = always
+  ez               = always
+#  bx               = always
+#  by               = always
+#  bz               = always
+#  jx               = always
+#  jy               = always
+#  px               = always
+#  py               = always 
+#  pz               = always
+#  gamma            = always
+#  id               = always 
+#  optical_depth    = always
+#  particle_eta     = always
+#  particle_chi     = always
+#  particle_grid    = always 
+  dt_average       = 1.0*laser_period
+  ekbar            = always + species + no_sum
+#  mass_density     = always + species
+#  charge_density   = always + species
+  number_density   = always + species + no_sum
+#  poynt_flux       = always
+  total_energy_sum = always
+#  temperature      = always + species
+  distribution_functions = always
+end:output
+
+
+begin:dist_fn
+  name             = x_px
+  ndims            = 2
+  dumpmask         = always
+  direction1       = dir_x
+  direction2       = dir_px
+  # range is ignored for spatial coordinates
+  range1           = (-2.0*micron,2.0*micron)
+  # resolution is ignored for spatial coordinates
+  resolution1      = 1000
+  resolution2      = 1000
+  include_species:electron
+#  include_species:proton
+#  include_species:photon
+#  include_species:positron
+end:dist_fn
+
+begin:dist_fn
+  name             = en
+  ndims            = 1
+  dumpmask         = always
+  direction1       = dir_en
+  range1           = (0,0)
+  restrict_x       = (-2.0*micron,2.0*micron)
+  resolution1      = 1000
+  include_species:electron
+  include_species:proton
+#  include_species:photon
+#  include_species:positron
+end:dist_fn
+
+#begin:dist_fn
+#  name             = theta_en
+#  ndims            = 2
+#  dumpmask         = always
+#  direction1       = dir_xy_angle
+#  direction2       = dir_en
+#  range2           = (0,0)
+#  resolution1      = 1000
+#  resolution2      = 1000
+#  include_species:electron
+#  include_species:proton
+#  include_species:photon
+#  include_species:positron
+#end:dist_fn
+
+
+#begin:dist_fn
+#  name             = theta_en
+#  ndims            = 2
+#  dumpmask         = always
+#  direction1       = dir_zx_angle
+#  direction2       = dir_en
+#  range2           = (0,0)
+#  resolution1      = 1000
+#  resolution2      = 1000
+#  include_species:electron
+#  include_species:proton
+#  include_species:photon
+#  include_species:positron
+#end:dist_fn
+
+
+
+
+
